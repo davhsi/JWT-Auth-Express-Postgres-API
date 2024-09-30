@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Authentication & Post Management</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            width: 80%;
+            margin: 30px auto;
+            max-width: 600px;
+        }
+
+        .form-container {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h2 {
+            text-align: center;
+        }
+
+        input[type="text"], input[type="password"], textarea {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        button {
+            width: 100%;
+            background-color: #28a745;
+            color: white;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #218838;
+        }
+
+        .toggle-link {
+            display: block;
+            text-align: center;
+            margin: 10px 0;
+            color: #007bff;
+            cursor: pointer;
+        }
+
+        .error {
+            color: red;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .post {
+            background-color: #fff;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .post h4 {
+            margin: 0 0 10px 0;
+        }
+
+        .post p {
+            margin: 0 0 10px 0;
+        }
+
+        .delete-btn {
+            background-color: #dc3545;
+            color: white;
+            padding: 5px 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .delete-btn:hover {
+            background-color: #c82333;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- Auth Form Section -->
+    <div id="auth-form" class="form-container">
+        <h2 id="auth-title">Login</h2>
+        <div class="error" id="auth-error"></div>
+        <input type="text" id="username" placeholder="Username">
+        <input type="password" id="password" placeholder="Password">
+        <button id="auth-btn">Login</button>
+        <span class="toggle-link" id="toggle-auth">Don't have an account? Register here</span>
+    </div>
+
+    <!-- Post Form Section (Hidden initially) -->
+    <div id="post-form" class="form-container" style="display: none;">
+        <h2>Create a Post</h2>
+        <input type="text" id="post-title" placeholder="Post Title">
+        <textarea id="post-content" placeholder="Post Content"></textarea>
+        <button id="create-post-btn">Create Post</button>
+
+        <div id="posts-section">
+            <h3>Your Posts</h3>
+            <div id="posts-container">
+                <!-- Posts will be dynamically inserted here -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const API_BASE_URL = 'http://localhost:3000/api'; // Adjust this based on your backend API URL
+
+    // Auth Form Elements
+    const authForm = document.getElementById('auth-form');
+    const authTitle = document.getElementById('auth-title');
+    const usernameInput = document.getElementById('username');
+    const passwordInput = document.getElementById('password');
+    const authError = document.getElementById('auth-error');
+    const authButton = document.getElementById('auth-btn');
+    const toggleAuthLink = document.getElementById('toggle-auth');
+
+    // Post Form Elements
+    const postForm = document.getElementById('post-form');
+    const postTitleInput = document.getElementById('post-title');
+    const postContentInput = document.getElementById('post-content');
+    const createPostButton = document.getElementById('create-post-btn');
+    const postsContainer = document.getElementById('posts-container');
+
+    let isLoginMode = true; // Toggle between login and registration mode
+    let token = ''; // Store the JWT token after login
+
+    // Toggle between Login and Register
+    toggleAuthLink.addEventListener('click', () => {
+        isLoginMode = !isLoginMode;
+        authTitle.textContent = isLoginMode ? 'Login' : 'Register';
+        authButton.textContent = isLoginMode ? 'Login' : 'Register';
+        toggleAuthLink.textContent = isLoginMode ? "Don't have an account? Register here" : 'Already have an account? Login here';
+        authError.textContent = '';
+        usernameInput.value = '';
+        passwordInput.value = '';
+    });
+
+    // Handle Login or Register
+    authButton.addEventListener('click', async () => {
+        const username = usernameInput.value;
+        const password = passwordInput.value;
+
+        if (!username || !password) {
+            authError.textContent = 'Username and password are required';
+            return;
+        }
+
+        const endpoint = isLoginMode ? '/auth/login' : '/auth/register';
+        const requestBody = { username, password };
+
+        try {
+            const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestBody)
+            });
+            const data = await response.json();
+
+            if (response.ok && isLoginMode) {
+                // Save JWT token and switch to post form
+                token = data.token;
+                authForm.style.display = 'none';
+                postForm.style.display = 'block';
+                fetchPosts(); // Fetch user's posts after login
+            } else if (response.ok && !isLoginMode) {
+                authError.textContent = 'Registration successful! Please login.';
+                toggleAuthLink.click(); // Switch to login mode
+            } else {
+                authError.textContent = data.message || 'An error occurred';
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            authError.textContent = 'Server error';
+        }
+    });
+
+    // Handle Post Creation
+    createPostButton.addEventListener('click', async () => {
+        const title = postTitleInput.value;
+        const content = postContentInput.value;
+
+        if (!title || !content) {
+            alert('Post title and content are required');
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/posts`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ title, description: content })
+            });
+
+            const postData = await response.json();
+            if (response.ok) {
+                // Add new post to the UI
+                appendPostToUI(postData);
+                postTitleInput.value = '';
+                postContentInput.value = '';
+            } else {
+                alert(postData.message || 'Error creating post');
+            }
+        } catch (error) {
+            console.error('Error creating post:', error);
+        }
+    });
+
+    // Fetch Posts (after login)
+    async function fetchPosts() {
+        try {
+            const response = await fetch(`${API_BASE_URL}/posts`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const posts = await response.json();
+            posts.forEach(post => appendPostToUI(post));
+        } catch (error) {
+            console.error('Error fetching posts:', error);
+        }
+    }
+
+    // Append a post to the UI
+    function appendPostToUI(post) {
+        const postElement = document.createElement('div');
+        postElement.classList.add('post');
+        postElement.innerHTML = `
+            <h4>${post.title}</h4>
+            <p>${post.description}</p>
+            <button class="delete-btn" onclick="deletePost(${post.id})">Delete</button>
+        `;
+        postsContainer.appendChild(postElement);
+    }
+
+    // Delete Post
+    async function deletePost(postId) {
+        try {
+            const response = await fetch(`${API_BASE_URL}/posts/${postId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (response.ok) {
+                // Remove post from the UI
+                const postElement = document.querySelector(`.post[data-id="${postId}"]`);
+                postElement.remove();
+            } else {
+                alert('Error deleting post');
+            }
+        } catch (error) {
+            console.error('Error deleting post:', error);
+        }
+    }
+</script>
+
+</body>
+</html>

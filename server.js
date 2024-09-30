@@ -17,21 +17,29 @@ app.use(bodyParser.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/posts', postRoutes);
 
-// Sync database models and ensure tables are up-to-date
-sequelize.authenticate()
-    .then(() => {
+// Connect to the database and sync models
+const connectToDatabase = async () => {
+    try {
+        await sequelize.authenticate();
         console.log('Connected to PostgreSQL database');
-        return sequelize.sync({ alter: true });  // Sync models with the database (alter=true adjusts schema)
-    })
-    .then(() => {
-        console.log('PostgreSQL models synchronized');
-    })
-    .catch(err => {
-        console.error('Unable to connect to the database:', err);
-    });
 
-// Start server
-const PORT = process.env.SERVER_PORT || 5000; // Use SERVER_PORT for the server
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
+        await sequelize.sync({ alter: true }); // Sync models with the database
+        console.log('PostgreSQL models synchronized');
+    } catch (err) {
+        console.error('Unable to connect to the database:', err);
+        process.exit(1); // Exit the application if database connection fails
+    }
+};
+
+// Start the server
+const startServer = async () => {
+    await connectToDatabase();
+
+    const PORT = process.env.SERVER_PORT || 5000; // Use SERVER_PORT for the server
+    app.listen(PORT, () => {
+        console.log(`Server running on port ${PORT}`);
+    });
+};
+
+// Run the server
+startServer();
