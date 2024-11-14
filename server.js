@@ -3,8 +3,8 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const { sequelize } = require('./config/db'); // Import the sequelize instance
-const authRoutes = require('./routes/auth');
-const postRoutes = require('./routes/posts');
+const authRoutes = require('./routes/authRoutes');
+const postRoutes = require('./routes/postRoutes');
 require('dotenv').config();
 
 const app = express();
